@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "git.h": "c"
+        "git.h": "c",
+        "gitt.h": "c",
+        "string.h": "c"
     }
 }
