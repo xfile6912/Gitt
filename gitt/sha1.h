@@ -37,8 +37,8 @@ void SHA1Final(
     );
 
 void SHA1(
-    char *hash_out,
-    const char *str,
+    unsigned char *hash_out,
+    const unsigned char *str,
     int len);
 
 #endif /* SHA1_H */

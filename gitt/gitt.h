@@ -29,32 +29,49 @@ void gitt_branch(int argc, char *argv[]);
 void gitt_checkout(int argc, char *argv[]);
 // error 출력
 void print_error(char *msg);
-
-void byte_to_hex(char *hex, char *byte);
-void create_blob_file(char *hashed_str, char *file_path);
+void byte_to_hex(char *hex, unsigned char *byte);
+void create_blob_file(char *hashed_str, char *file_path, off_t file_size);
 void create_tree_file(char *hashed_str, char *folder_path);
+int is_inited();
+
+int is_inited()
+{
+    char path[MAX_LINE];
+    strcpy(path, cwd);
+    strcat(path, "/.gitt");
+
+    return access(path, F_OK);
+}
 
 void execute_command(int argc, char *argv[])
 {
     if (!strcmp(argv[1], "init"))
         gitt_init(argc, argv);
-
-    else if (!strcmp(argv[1], "status"))
-        gitt_status(argc, argv);
-
-    else if (!strcmp(argv[1], "add"))
-        gitt_add(argc, argv);
-
-    else if (!strcmp(argv[1], "commit"))
-        gitt_commit(argc, argv);
-
-    else if (!strcmp(argv[1], "branch"))
-        gitt_branch(argc, argv);
-
-    else if (!strcmp(argv[1], "checkout"))
-        gitt_checkout(argc, argv);
     else
-        print_error("가용가능 명령어가 아닙니다.");
+    {
+        // gitt저장소로써 초기화 되지 않았다면
+        if (is_inited() == -1)
+        {
+            print_error("초기화된 gitt저장소가 아닙니다.");
+            return;
+        }
+        else if (!strcmp(argv[1], "status"))
+            gitt_status(argc, argv);
+
+        else if (!strcmp(argv[1], "add"))
+            gitt_add(argc, argv);
+
+        else if (!strcmp(argv[1], "commit"))
+            gitt_commit(argc, argv);
+
+        else if (!strcmp(argv[1], "branch"))
+            gitt_branch(argc, argv);
+
+        else if (!strcmp(argv[1], "checkout"))
+            gitt_checkout(argc, argv);
+        else
+            print_error("가용가능 명령어가 아닙니다.");
+    }
 }
 
 //./gitt init
@@ -99,31 +116,34 @@ void add_all_files_to_index(char *cur_folder, FILE *index)
     //현재 폴더를 open
     dir = opendir(cur_folder);
     //파일들 순회
-    while ((file = readdir(dir))) 
+    while ((file = readdir(dir)))
     {
-        //파일 정보
-        stat(file->d_name, &file_stat); 
         //해당 파일 or 폴더까지의 경로 생성
         char path[MAX_LINE];
+        memset(path, '\0', MAX_LINE);
+        
         strcpy(path, cur_folder);
         strcat(path, "/");
         strcat(path, file->d_name);
 
+        stat(path, &file_stat);
+
+
         if (S_ISDIR(file_stat.st_mode)) // directory이고 숨김폴더가 아니라면
         {
-            if(file->d_name[0]!= '.')
+            if (file->d_name[0] != '.')
             {
                 //재귀 적으로 해당 폴더에 들어가서 실행되도록 함
                 add_all_files_to_index(path, index);
             }
         }
-        else//directory가 아니라면, blob파일을 생성하고, index에 저장
+        else // directory가 아니라면, blob파일을 생성하고, index에 저장
         {
             char hashed_str[MAX_LINE];
-            
-            create_blob_file(hashed_str, path);
+            memset(hashed_str, '\0', MAX_LINE);
+            create_blob_file(hashed_str, path, file_stat.st_size);
             //+1을 해주는 이유는 cwd이후에 /가 하나 있기 때문
-            fprintf(index, "%s %s\n", hashed_str, path+strlen(cwd)+1);
+            fprintf(index, "%s %s\n", hashed_str, path + strlen(cwd) + 1);
         }
     }
     closedir(dir);
@@ -140,51 +160,51 @@ void gitt_add_dot()
     fclose(index);
 }
 
-void byte_to_hex(char *hex, char *byte)
+void byte_to_hex(char *hex, unsigned char *byte)
 {
     int i;
     char *ptr = hex;
-    for (i = 0; i < strlen(byte); i++)
+    for (i = 0; i < 20; i++)
         sprintf(ptr + 2 * i, "%02x", byte[i]);
 }
-// blob_path에 해당하는 blob_file이 존재하면 1 반환, 존재하지 않으면 0 반환
-int is_blob_file_exist(char *blob_path)
-{
-    FILE *fp = fopen(blob_path, "r");
-    // blob file이 존재하면
 
-    if (fp)
+//file이 존재하면 1 반환, 존재하지 않으면 0 반환
+int is_file_exist(char *file_path)
+{
+    //file이 존재하면
+    if (access(file_path, F_OK)==1)
     {
-        fclose(fp);
         return 1;
     }
     return 0;
 }
 
-void create_blob_file(char *hashed_str, char *file_path)
+void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
 {
-    int file_size;
     FILE *fp;
-    char *buffer;
-    char hashed_byte[MAX_LINE];
+    unsigned char *buffer;
+
     char blob_path[MAX_LINE];
+    unsigned char hashed_byte[MAX_LINE];
+
+    
+    memset(blob_path, '\0', MAX_LINE);
+    memset(hashed_byte, '\0', MAX_LINE);
 
     //파일 오픈
     fp = fopen(file_path, "r");
 
-    //파일 크기 계산
-    fseek(fp, 0, SEEK_END);
-    file_size = ftell(fp);
 
     //파일로부터 내용으ㄹ 버퍼로 읽음
-    buffer = (char *)malloc(sizeof(char) * file_size);
-    fseek(fp, 0, SEEK_SET);
-    fread(buffer, sizeof(char), file_size, fp);
+    buffer = (unsigned char *)malloc(sizeof(unsigned char) * file_size);
+    memset(buffer, '\0', file_size);
+    fread(buffer, file_size, sizeof(unsigned char), fp);
     fclose(fp);
 
     //파일을 sha1 해시함수를 통해 해시
     SHA1(hashed_byte, buffer, file_size);
     byte_to_hex(hashed_str, hashed_byte);
+
 
     // hashed_str을 기반으로 폴더 생성하고 blob path 생성
     strcpy(blob_path, ".gitt/objects/");
@@ -194,11 +214,11 @@ void create_blob_file(char *hashed_str, char *file_path)
     strcat(blob_path, hashed_str + 2);
 
     //해당 blob file이 없으면 blob 파일 생성
-    if (!is_blob_file_exist(blob_path))
+    if (!is_file_exist(blob_path))
     {
 
         fp = fopen(blob_path, "w");
-        fwrite(buffer, sizeof(char), file_size, fp);
+        fwrite(buffer, file_size, sizeof(unsigned char),fp);
         fclose(fp);
     }
 
@@ -211,7 +231,6 @@ void create_tree_file(char *hashed_str, char *folder_path)
 //./gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[])
 {
-    printf("gitt add\n");
     if (!strcmp(argv[2], ".") && argc == 3) //./gitt add .인 경우
     {
         gitt_add_dot();

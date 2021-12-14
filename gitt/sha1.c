@@ -2,6 +2,7 @@
 SHA-1 in C
 By Steve Reid <steve@edmweb.com>
 100% Public Domain
+
 Test Vectors (from FIPS PUB 180-1)
 "abc"
   A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D
@@ -279,8 +280,8 @@ void SHA1Final(
 }
 
 void SHA1(
-    char *hash_out,
-    const char *str,
+    unsigned char *hash_out,
+    const unsigned char *str,
     int len)
 {
     SHA1_CTX ctx;
@@ -291,3 +292,4 @@ void SHA1(
         SHA1Update(&ctx, (const unsigned char*)str + ii, 1);
     SHA1Final((unsigned char *)hash_out, &ctx);
 }
+
