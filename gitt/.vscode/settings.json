@@ -5,6 +5,15 @@
         "string.h": "c",
         "e_os2.h": "c",
         "stddef.h": "c",
-        "sha1.h": "c"
+        "sha1.h": "c",
+        "stdio.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c",
+        "dirent.h": "c",
+        "errno.h": "c",
+        "stat.h": "c",
+        "stdbool.h": "c"
     }
 }

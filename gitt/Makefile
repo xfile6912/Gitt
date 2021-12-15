@@ -1,11 +1,12 @@
-gitt : gitt.o sha1.o
-	gcc -o gitt gitt.o sha1.o
-  
-gitt.o : gitt.c
-	gcc -c -o gitt.o gitt.c
+CC = gcc
+CFLAGS = -Og
+LDLIBS = -lpthread
 
-sha1.o : sha1.c
-	gcc -c -o sha1.o sha1.c
+PROGS = gitt
 
-clean : 
-	rm -rf *.o gitt .gitt
+all: $(PROGS)
+
+gitt: main.c gitt.c hash.c list.c sha1.c
+
+clean:
+	rm -rf *~ $(PROGS) .gitt
