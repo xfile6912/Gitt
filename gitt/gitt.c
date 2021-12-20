@@ -1,8 +1,6 @@
-
 #include "sha1.h"
 #include "gitt.h"
 
-// file path가 hash의 키가 됨
 unsigned index_item_hash_func(const struct hash_elem *e, void *aux)
 {
     struct index_item *idx_item = hash_entry(e, struct index_item, elem);
@@ -12,15 +10,16 @@ bool index_item_hash_less_func(const struct hash_elem *a, const struct hash_elem
 {
     struct index_item *idx_item1 = hash_entry(a, struct index_item, elem);
     struct index_item *idx_item2 = hash_entry(b, struct index_item, elem);
-    if (strcmp(idx_item1->file_path, idx_item2->file_path) < 0)
+    if (!strcmp(idx_item1->file_path, idx_item2->file_path))
         return false;
     return true;
 }
-void index_item_hash_delete_func(struct hash_elem* e, void* aux)
+void index_item_hash_delete_func(struct hash_elem *e, void *aux)
 {
-    struct index_item* idx_item = hash_entry(e, struct index_item, elem);
-	free(idx_item);
+    struct index_item *idx_item = hash_entry(e, struct index_item, elem);
+    free(idx_item);
 }
+
 int is_inited()
 {
     char path[MAX_LINE];
@@ -32,7 +31,11 @@ int is_inited()
 
 void execute_command(int argc, char *argv[])
 {
-    if (!strcmp(argv[1], "init"))
+    if(argc==1 || !strcmp(argv[1], "help"))
+    {
+        gitt_help();
+    }
+    else if (!strcmp(argv[1], "init"))
         gitt_init(argc, argv);
     else
     {
@@ -59,6 +62,11 @@ void execute_command(int argc, char *argv[])
         else
             print_error("가용가능 명령어가 아닙니다.");
     }
+}
+
+void gitt_help()
+{
+    printf("./gitt help\n");
 }
 
 //./gitt init
@@ -94,44 +102,53 @@ void gitt_status(int argc, char *argv[])
     printf("gitt status\n");
 }
 
-void add_all_files_to_index(char *cur_folder, FILE *index)
+void gitt_add_dot(char *cur_folder, FILE *index)
 {
     DIR *dir;
     struct dirent *file;
     struct stat file_stat;
-    char absolute_path[MAX_LINE]; //절대 주소 저장
-    strcpy(absolute_path, cwd);
-    strcat(absolute_path, "/");
-    strcat(absolute_path, cur_folder);
+    char cur_folder_absolute[MAX_LINE]; //절대 주소 저장
 
-    //현재 폴더를 open
-    dir = opendir(absolute_path);
-    //파일들 순회
+    // curfolder를 통해 curfolder까지의 절대경로를 알아냄
+    strcpy(cur_folder_absolute, cwd);
+    strcat(cur_folder_absolute, "/");
+    strcat(cur_folder_absolute, cur_folder);
+
+    //절대 경로를 통해 cur folder를 open
+    dir = opendir(cur_folder_absolute);
+
+    // cur folder 내의 파일들 및 폴더들 순회
     while ((file = readdir(dir)))
     {
-        //해당 파일 or 폴더까지의 경로 생성
-        char path[MAX_LINE];
-        memset(path, '\0', MAX_LINE);
-        strcat(path, file->d_name);
 
-        stat(path, &file_stat);
+        // cur folder 내의 파일들 및 폴더 까지의 상대 경로를 저장
+        char file_relative_path[MAX_LINE];
+        memset(file_relative_path, '\0', MAX_LINE);
 
+        // cur folder(상대경로)까지의 경로를 path에 저장
+        strcpy(file_relative_path, cur_folder);
+        if (strcmp(file_relative_path, "")) //만약 cur_folder까지의 상대경로가 "", 즉 .gitt이 관리하는 가장 상위 폴더인 경우이면, "/"를 넣어줄 필요가 없음
+        {
+            strcat(file_relative_path, "/");
+        }
+        strcat(file_relative_path, file->d_name);
+
+        stat(file_relative_path, &file_stat);
         if (S_ISDIR(file_stat.st_mode)) // directory이고 숨김폴더가 아니라면
         {
-            strcat(path, "/");
             if (file->d_name[0] != '.')
             {
-                //재귀 적으로 해당 폴더에 들어가서 실행되도록 함
-                add_all_files_to_index(path, index);
+                //폴더 안에서 재귀 적으로 실행되도록 함
+                gitt_add_dot(file_relative_path, index);
             }
         }
         else // directory가 아니라면, blob파일을 생성하고, index에 저장
         {
             char hashed_str[MAX_LINE];
             memset(hashed_str, '\0', MAX_LINE);
-            create_blob_file(hashed_str, path, file_stat.st_size);
+            create_blob_file(hashed_str, file_relative_path, file_stat.st_size);
             //+1을 해주는 이유는 cwd이후에 /가 하나 있기 때문
-            fprintf(index, "%s %s\n", hashed_str, path);
+            fprintf(index, "%s %s\n", hashed_str, file_relative_path);
         }
     }
     closedir(dir);
@@ -145,7 +162,6 @@ void byte_to_hex(char *hex, unsigned char *byte)
         sprintf(ptr + 2 * i, "%02x", byte[i]);
 }
 
-// file이 존재하면 1 반환, 존재하지 않으면 0 반환
 int is_file_exist(char *file_path)
 {
     struct stat file_stat;
@@ -205,23 +221,17 @@ void create_tree_file(char *hashed_str, char *folder_path)
 {
 }
 
-//./gitt add .
-void gitt_add_dot()
-{
-    FILE *index;
-    // index 파일을 만듦
-    index = fopen(".gitt/index", "w");
-    //현재 폴더안에 모든 파일 및 폴더를 받아서
-    add_all_files_to_index(cwd, index);
-    fclose(index);
-}
-
 //./gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[])
 {
     if (!strcmp(argv[2], ".") && argc == 3) //./gitt add .인 경우
     {
-        gitt_add_dot();
+        FILE *index;
+        // index 파일을 만듦
+        index = fopen(".gitt/index", "w");
+        //현재 폴더안에 모든 파일 및 폴더를 index에 추가
+        gitt_add_dot("", index);
+        fclose(index);
     }
     else
     {
@@ -240,13 +250,13 @@ void gitt_add(int argc, char *argv[])
         // index파일의 정보를 저장할 hash
         struct hash idx_hash;
         hash_init(&idx_hash, index_item_hash_func, index_item_hash_less_func, NULL);
-        if (index != NULL)//INDEX파일이 존재한다면
+        if (index != NULL) // INDEX파일이 존재한다면
         {
             int res;
 
             while (1) // index 파일을 한 줄씩 읽어 idx_hash에 저장
             {
-                struct index_item *idx_item=(struct index_item*)malloc(sizeof(struct index_item));
+                struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
                 res = fscanf(index, "%s %s", idx_item->hashed_str, idx_item->file_path);
                 if (res == EOF)
                     break;
@@ -260,7 +270,7 @@ void gitt_add(int argc, char *argv[])
         {
 
             struct stat file_stat;
-            struct index_item *idx_item=(struct index_item*)malloc(sizeof(struct index_item));
+            struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
             //파일 path 저장
             strcpy(idx_item->file_path, argv[i]);
             //파일의 size 정보를 알기 위해 file_stat에 파일의 정보 저장
