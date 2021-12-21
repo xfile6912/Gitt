@@ -31,7 +31,7 @@ int is_inited()
 
 void execute_command(int argc, char *argv[])
 {
-    if(argc==1 || !strcmp(argv[1], "help"))
+    if (argc == 1 || !strcmp(argv[1], "help"))
     {
         gitt_help();
     }
@@ -91,7 +91,7 @@ void gitt_init(int argc, char *argv[])
     mkdir(".gitt/refs/tags", 0755);
     // HEAD 파일 생성
     fp = fopen(".gitt/HEAD", "w");
-    fprintf(fp, "refs/heads/master");
+    fprintf(fp, ".gitt/refs/heads/master");
     fclose(fp);
 
     printf("빈 gitt 저장소로 초기화 하였습니다. (%s%s)\n", cwd, "/.gitt");
@@ -221,6 +221,27 @@ void create_tree_file(char *hashed_str, char *folder_path)
 {
 }
 
+int read_index_file_to_hash(struct hash *idx_hash)
+{
+    FILE *index = fopen(".gitt/index", "r");
+    if (index) // INDEX파일이 존재한다면
+    {
+        int res;
+
+        while (1) // index 파일을 한 줄씩 읽어 idx_hash에 저장
+        {
+            struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
+            res = fscanf(index, "%s %s", idx_item->hashed_str, idx_item->file_path);
+            if (res == EOF)
+                break;
+
+            hash_insert(idx_hash, &(idx_item->elem));
+        }
+        fclose(index);
+        return 1;
+    }
+    return 0;
+}
 //./gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[])
 {
@@ -246,26 +267,13 @@ void gitt_add(int argc, char *argv[])
             }
         }
 
-        FILE *index = fopen(".gitt/index", "r");
         // index파일의 정보를 저장할 hash
         struct hash idx_hash;
         hash_init(&idx_hash, index_item_hash_func, index_item_hash_less_func, NULL);
-        if (index != NULL) // INDEX파일이 존재한다면
-        {
-            int res;
+        //index파일로부터 idx_hash로 정보를 읽어옴
+        read_index_file_to_hash(&idx_hash);
 
-            while (1) // index 파일을 한 줄씩 읽어 idx_hash에 저장
-            {
-                struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
-                res = fscanf(index, "%s %s", idx_item->hashed_str, idx_item->file_path);
-                if (res == EOF)
-                    break;
-
-                hash_insert(&idx_hash, &(idx_item->elem));
-            }
-            fclose(index);
-        }
-        // argument로 받은 파일을 이용하여 hash 자료구조에 추가하거나, 수정
+        // argument로 받은 파일을 hash 자료구조에 추가하거나, 수정
         for (int i = 2; i < argc; i++)
         {
 
@@ -293,7 +301,7 @@ void gitt_add(int argc, char *argv[])
         }
 
         // hash의 내용을 새로 index파일에 써줌
-        index = fopen(".gitt/index", "w");
+        FILE *index = fopen(".gitt/index", "w");
         struct hash_iterator it;
 
         hash_first(&it, &idx_hash);
@@ -307,10 +315,49 @@ void gitt_add(int argc, char *argv[])
         fclose(index);
     }
 }
+//index파일의 내용을 읽어 tree 자료구조로 만듦, 만약 index파일이 없으면 0 반환, 있으면 1반환
+int read_index_file_tree(struct tree *t)
+{
+    FILE *index = fopen(".gitt/index", "r");
+    if(index)
+    {
+        fclose(index);
+        return 1;
+    }
+    return 0;
+}
+
 //./gitt commit [commit message]
 void gitt_commit(int argc, char *argv[])
 {
-    printf("gitt commit\n");
+    FILE *head;
+    char head_path[MAX_LINE];
+    //HEAD 파일로부터 현재 브랜치 얻어옴
+    head=fopen(".gitt/HEAD", "r");
+    fscanf(head, "%s", head_path);
+
+    // index파일 읽어 tree 자료구조 생성
+    /*if(!read_index_file_tree(t));
+    {
+        print_error("staged area를 나타내는 index파일이 존재하지 않습니다. gitt add가 필요합니다.");
+        return;
+    }*/
+
+    //현재 head가 가리키고 있는 것이 refs가 아닌 커밋 hash인 경우
+    if(strncmp(head_path, ".gitt/refs/heads", 16))
+    {
+        //기존 head가 가리키고 있는 commit의 tree file과 비교
+    }
+    //현재 head가 refs를 가리키지만 .gitt/refs/heads에 없는 경우 .gitt/refs/heads에 파일 생성
+    else if(!is_file_exist(head_path))
+    {
+        //tree자료구조 기반으로 commit 메시지 생성
+    }
+    //있는 경우
+    else
+    {
+        //기존 head가 가리키고있는 commit의 tree file과 비교
+    }
 }
 //./gitt branch [branch name]
 void gitt_branch(int argc, char *argv[])

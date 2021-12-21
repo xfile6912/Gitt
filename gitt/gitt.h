@@ -19,6 +19,25 @@ struct index_item
     char hashed_str[MAX_LINE];
     char file_path[MAX_LINE];
 };
+//blob 정보 저장
+struct blob_item
+{
+    char hashed_str[MAX_LINE];//BLOB파일의 hash
+    char file_name[MAX_LINE];//BLOB파일이 나타내는 파일이름
+
+    struct list_elem elem;  //list의 원소로 사용할 때 사용
+};
+
+//tree 자료구조
+struct tree_item
+{
+    struct list blobs;//하나의 tree파일에 속한 blob파일들
+    struct list trees;//하나의 tree파일에 속한 tree파일들
+    char hashed_str[MAX_LINE];//하나의 tree파일에 해당하는 hashed_str
+    char folder_name[MAX_LINE];//하나의 tree파일이 나타내는 폴더 이름
+
+    struct list_elem elem;//list의 원소로 사용할 때 사용
+};
 
 char cwd[MAX_LINE];
 
@@ -60,4 +79,6 @@ void create_tree_file(char *hashed_str, char *folder_path);
 int is_inited();
 // file이 존재하면 1 반환, 존재하지 않으면 0 반환
 int is_file_exist(char *file_path);
+//index file로부터 idx_hash 자료구조로 읽어옴, 없으면 0반환, 있으면 1반환
+int read_index_file_to_hash(struct hash *idx_hash);
 #endif
