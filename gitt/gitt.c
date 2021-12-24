@@ -1,24 +1,4 @@
-#include "sha1.h"
 #include "gitt.h"
-
-unsigned index_item_hash_func(const struct hash_elem *e, void *aux)
-{
-    struct index_item *idx_item = hash_entry(e, struct index_item, elem);
-    return hash_string(idx_item->file_path);
-}
-bool index_item_hash_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux)
-{
-    struct index_item *idx_item1 = hash_entry(a, struct index_item, elem);
-    struct index_item *idx_item2 = hash_entry(b, struct index_item, elem);
-    if (!strcmp(idx_item1->file_path, idx_item2->file_path))
-        return false;
-    return true;
-}
-void index_item_hash_delete_func(struct hash_elem *e, void *aux)
-{
-    struct index_item *idx_item = hash_entry(e, struct index_item, elem);
-    free(idx_item);
-}
 
 int is_inited()
 {
@@ -154,14 +134,6 @@ void gitt_add_dot(char *cur_folder, FILE *index)
     closedir(dir);
 }
 
-void byte_to_hex(char *hex, unsigned char *byte)
-{
-    int i;
-    char *ptr = hex;
-    for (i = 0; i < 20; i++)
-        sprintf(ptr + 2 * i, "%02x", byte[i]);
-}
-
 int is_file_exist(char *file_path)
 {
     struct stat file_stat;
@@ -174,53 +146,6 @@ int is_file_exist(char *file_path)
     return 0;
 }
 
-void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
-{
-    FILE *fp;
-    unsigned char *buffer;
-
-    char blob_path[MAX_LINE];
-    unsigned char hashed_byte[MAX_LINE];
-
-    memset(blob_path, '\0', MAX_LINE);
-    memset(hashed_byte, '\0', MAX_LINE);
-
-    //파일 오픈
-    fp = fopen(file_path, "r");
-
-    //파일로부터 내용으ㄹ 버퍼로 읽음
-    buffer = (unsigned char *)malloc(sizeof(unsigned char) * file_size);
-    memset(buffer, '\0', file_size);
-    fread(buffer, file_size, sizeof(unsigned char), fp);
-    fclose(fp);
-
-    //파일을 sha1 해시함수를 통해 해시
-    SHA1(hashed_byte, buffer, file_size);
-    byte_to_hex(hashed_str, hashed_byte);
-
-    // hashed_str을 기반으로 폴더 생성하고 blob path 생성
-    strcpy(blob_path, ".gitt/objects/");
-    strncat(blob_path, hashed_str, 2);
-    mkdir(blob_path, 0755);
-    strcat(blob_path, "/");
-    strcat(blob_path, hashed_str + 2);
-
-    //해당 blob file이 없으면 blob 파일 생성
-    if (!is_file_exist(blob_path))
-    {
-
-        fp = fopen(blob_path, "w");
-        fwrite(buffer, file_size, sizeof(unsigned char), fp);
-        fclose(fp);
-    }
-
-    free(buffer);
-}
-
-void create_tree_file(char *hashed_str, char *folder_path)
-{
-}
-
 int read_index_file_to_hash(struct hash *idx_hash)
 {
     FILE *index = fopen(".gitt/index", "r");
@@ -230,22 +155,23 @@ int read_index_file_to_hash(struct hash *idx_hash)
 
         while (1) // index 파일을 한 줄씩 읽어 idx_hash에 저장
         {
-            struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
-            res = fscanf(index, "%s %s", idx_item->hashed_str, idx_item->file_path);
+            struct blob_item *blb_item = (struct blob_item *)malloc(sizeof(struct blob_item));
+            res = fscanf(index, "%s %s", blb_item->hashed_str, blb_item->file_name);
             if (res == EOF)
                 break;
 
-            hash_insert(idx_hash, &(idx_item->elem));
+            hash_insert(idx_hash, &(blb_item->elem));
         }
         fclose(index);
         return 1;
     }
     return 0;
 }
+
 //./gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[])
 {
-    if (!strcmp(argv[2], ".") && argc == 3) //./gitt add .인 경우
+    if (argc == 3 && !strcmp(argv[2], ".")) //./gitt add .인 경우
     {
         FILE *index;
         // index 파일을 만듦
@@ -254,7 +180,7 @@ void gitt_add(int argc, char *argv[])
         gitt_add_dot("", index);
         fclose(index);
     }
-    else
+    else if(argc>=3)
     {
         int i;
         //인자 중에 실제로 존재하지 않는 파일이 있다면 오류 메시지 출력하고 종료
@@ -269,7 +195,7 @@ void gitt_add(int argc, char *argv[])
 
         // index파일의 정보를 저장할 hash
         struct hash idx_hash;
-        hash_init(&idx_hash, index_item_hash_func, index_item_hash_less_func, NULL);
+        hash_init(&idx_hash, blob_item_hash_func, blob_item_hash_less_func, NULL);
         //index파일로부터 idx_hash로 정보를 읽어옴
         read_index_file_to_hash(&idx_hash);
 
@@ -278,25 +204,25 @@ void gitt_add(int argc, char *argv[])
         {
 
             struct stat file_stat;
-            struct index_item *idx_item = (struct index_item *)malloc(sizeof(struct index_item));
+            struct blob_item *blb_item = (struct blob_item *)malloc(sizeof(struct blob_item));
             //파일 path 저장
-            strcpy(idx_item->file_path, argv[i]);
+            strcpy(blb_item->file_name, argv[i]);
             //파일의 size 정보를 알기 위해 file_stat에 파일의 정보 저장
-            stat(idx_item->file_path, &file_stat);
+            stat(blb_item->file_name, &file_stat);
             // blob파일을 만들고 blob파일에 대한 hashed_str을 저장
-            create_blob_file(idx_item->hashed_str, idx_item->file_path, file_stat.st_size);
+            create_blob_file(blb_item->hashed_str, blb_item->file_name, file_stat.st_size);
 
-            struct hash_elem *e = hash_find(&idx_hash, &idx_item->elem);
+            struct hash_elem *e = hash_find(&idx_hash, &blb_item->elem);
             if (e) //해당 파일이 이미 idx_hash에 있다면
             {
-                //기존의 index_item의 hashed_str을 새로 생성한 blob_file의 hashed_str로 바꾸어 줌
-                struct index_item *existed_item = hash_entry(e, struct index_item, elem);
-                strcpy(existed_item->hashed_str, idx_item->hashed_str);
-                free(idx_item);
+                //기존의 blob_item의 hashed_str을 새로 생성한 blob_file의 hashed_str로 바꾸어 줌
+                struct blob_item *existed_item = hash_entry(e, struct blob_item, elem);
+                strcpy(existed_item->hashed_str, blb_item->hashed_str);
+                free(blb_item);
             }
             else //없으면 추가해줌
             {
-                hash_insert(&idx_hash, &idx_item->elem);
+                hash_insert(&idx_hash, &blb_item->elem);
             }
         }
 
@@ -307,24 +233,15 @@ void gitt_add(int argc, char *argv[])
         hash_first(&it, &idx_hash);
         while (hash_next(&it))
         {
-            struct index_item *idx_item = hash_entry(hash_cur(&it), struct index_item, elem);
-            fprintf(index, "%s %s\n", idx_item->hashed_str, idx_item->file_path);
+            struct blob_item *blb_item = hash_entry(hash_cur(&it), struct blob_item, elem);
+            fprintf(index, "%s %s\n", blb_item->hashed_str, blb_item->file_name);
         }
 
-        hash_destroy(&idx_hash, index_item_hash_delete_func);
+        hash_destroy(&idx_hash, blob_item_hash_delete_func);
         fclose(index);
     }
-}
-//index파일의 내용을 읽어 tree 자료구조로 만듦, 만약 index파일이 없으면 0 반환, 있으면 1반환
-int read_index_file_tree(struct tree *t)
-{
-    FILE *index = fopen(".gitt/index", "r");
-    if(index)
-    {
-        fclose(index);
-        return 1;
-    }
-    return 0;
+    else
+        print_error("파일 이름이 필요합니다.");
 }
 
 //./gitt commit [commit message]
@@ -336,12 +253,13 @@ void gitt_commit(int argc, char *argv[])
     head=fopen(".gitt/HEAD", "r");
     fscanf(head, "%s", head_path);
 
+    struct tree_item *t = (struct tree_item *) malloc (sizeof(struct tree_item));
     // index파일 읽어 tree 자료구조 생성
-    /*if(!read_index_file_tree(t));
+    if(!read_index_file_to_tree(t))
     {
         print_error("staged area를 나타내는 index파일이 존재하지 않습니다. gitt add가 필요합니다.");
         return;
-    }*/
+    }
 
     //현재 head가 가리키고 있는 것이 refs가 아닌 커밋 hash인 경우
     if(strncmp(head_path, ".gitt/refs/heads", 16))
@@ -374,3 +292,6 @@ void print_error(char *msg)
 {
     printf("ERROR: %s\n", msg);
 }
+
+
+
