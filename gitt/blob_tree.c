@@ -134,7 +134,7 @@ void give_hashed_str_to_tree(struct tree_item *t)
     unsigned char hashed_byte[MAX_LINE];
     SHA1(hashed_byte, (unsigned char*)buffer, strlen(buffer));
     byte_to_hex(t->hashed_str, hashed_byte);
-
+    free(buffer);
 }
 
 int read_index_file_to_tree(struct tree_item *t)
@@ -217,6 +217,105 @@ void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
     free(buffer);
 }
 
-void create_tree_file(char *hashed_str, char *folder_path)
+void free_all_sub_trees_and_blobs(struct tree_item *t)
 {
+    struct hash_iterator it;
+
+    //hash_iterator를 통해 t 안에 속한 모든 tree_item 순회
+    hash_first(&it, &t->trees);
+    while (hash_next(&it))
+    {
+        struct tree_item *tre_item = hash_entry(hash_cur(&it), struct tree_item, elem);
+        //t 안의 모든 tree item을 돌며 동적할당 해제
+        free_all_sub_trees_and_blobs(tre_item);
+    }
+    
+    //t에 속한 trees와 blobs의 동적할당 해제
+    hash_destroy(&t->trees, tree_item_hash_delete_func);
+    hash_destroy(&t->blobs, blob_item_hash_delete_func);
+
+}
+
+void create_tree_file(struct tree_item *t)
+{
+    struct hash_iterator it;
+    
+    //t의 hashed str을 통해 tree_path를 생성
+    char tree_path[MAX_LINE];
+    make_object_path(tree_path, t->hashed_str);
+
+    if(is_file_exist(tree_path))//해당 tree path에 대해 파일이 이미 있으면 만들지 않아도 됨
+        return;
+
+    //해당 파일이 없으면 파일을 쓰기 모드로 생성
+    FILE *fp=fopen(tree_path, "w");
+
+    //hash_iterator를 통해, t에 속한 모든 tree_item 순회
+    hash_first(&it, &t->trees);
+    while (hash_next(&it))
+    {
+        struct tree_item *tre_item = hash_entry(hash_cur(&it), struct tree_item, elem);
+        //해당 tree_item에 대해 또 tree_file 생성
+        create_tree_file(tre_item);
+
+        //tree_file에 해당 tree_item 내용 기록
+        fprintf(fp, "tree %s %s\n", tre_item->hashed_str, tre_item->folder_name);
+    }
+
+    //hash_iterator를 통해 t에 속한 모든 blob_item 순회
+    hash_first(&it, &t->blobs);
+    while (hash_next(&it))
+    {
+        struct blob_item *blb_item = hash_entry(hash_cur(&it), struct blob_item, elem);
+        
+        //tree_file에 해당 blob_item 내용 기록
+        fprintf(fp, "blob %s %s\n", blb_item->hashed_str, blb_item->file_name);
+    }
+
+    fclose(fp);
+}
+
+void create_commit_file(char * hashed_str, struct tree_item *t, char * commit_msg, char * parent)
+{
+    //t에 대한 tree file들을 생성
+    create_tree_file(t);
+
+    char *buffer = (char *)malloc(sizeof(char) * MAX_LINE * 4);
+    strcpy(buffer, "\0");
+
+    //tree에 대한 정보 입력
+    strcat(buffer, "tree ");
+    strcat(buffer, t->hashed_str);
+    strcat(buffer, "\n");
+    
+    //parent에 대한 정보 입력
+    if(parent != NULL)
+    {
+        strcat(buffer, "parent ");
+        strcat(buffer, parent);
+        strcat(buffer, "\n");
+    }
+
+    strcat(buffer, "\n");
+    strcat(buffer, commit_msg);
+
+
+    //버퍼의 내용을 sha1을  통해 해시
+    unsigned char hashed_byte[MAX_LINE];
+    SHA1(hashed_byte, (unsigned char*)buffer, strlen(buffer));
+    byte_to_hex(hashed_str, hashed_byte);
+
+    // hashed_str을 기반으로 폴더 생성하고 blob path 생성
+    char commit_path[MAX_LINE];
+    memset(commit_path, '\0', MAX_LINE);
+
+    //hashed_str을 이용하여 object path를 만들어냄
+    make_object_path(commit_path, hashed_str);
+
+    //object path를 이용해 commit_file 생성
+    FILE *fp = fopen(commit_path, "w");
+    fprintf(fp, "%s\n", buffer);
+    
+    fclose(fp);
+    free(buffer);
 }

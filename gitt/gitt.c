@@ -253,11 +253,29 @@ void gitt_commit(int argc, char *argv[])
     head=fopen(".gitt/HEAD", "r");
     fscanf(head, "%s", head_path);
 
+    if(argc<=2)
+    {
+        print_error("commit message가 필요합니다.");
+        return ;
+    }
+
+    char commit_msg[MAX_LINE];
+    int i;
+    //commit message 생성
+    memset(commit_msg, '\0', MAX_LINE);
+    for(i=2; i<argc; i++)
+    {
+        strcat(commit_msg, argv[i]);
+        if(i != argc-1)
+            strcat(commit_msg, " ");
+    }
+
     struct tree_item *t = (struct tree_item *) malloc (sizeof(struct tree_item));
     // index파일 읽어 tree 자료구조 생성
     if(!read_index_file_to_tree(t))
     {
         print_error("staged area를 나타내는 index파일이 존재하지 않습니다. gitt add가 필요합니다.");
+        free(t);
         return;
     }
 
@@ -266,16 +284,26 @@ void gitt_commit(int argc, char *argv[])
     {
         //기존 head가 가리키고 있는 commit의 tree file과 비교
     }
-    //현재 head가 refs를 가리키지만 .gitt/refs/heads에 없는 경우 .gitt/refs/heads에 파일 생성
+    //현재 head가 refs(branch)를 가리키지만 .gitt/refs/heads에 없는 경우(첫 커밋인 경우), .gitt/refs/heads에 해당 refs(branch) 파일 생성
     else if(!is_file_exist(head_path))
     {
-        //tree자료구조 기반으로 commit 메시지 생성
+        //현재 branch에 해당하는 파일을 만들어줌
+        FILE *now_branch=fopen(head_path, "w");
+        //tree자료구조 기반으로 commit 파일 생성
+        char hashed_str[MAX_LINE];
+        create_commit_file(hashed_str, t, commit_msg, NULL);
+        //현재 branch 파일에 commit에 대한 hashed string 기록
+        fprintf(now_branch, "%s", hashed_str);
+        fclose(now_branch);
     }
     //있는 경우
     else
     {
         //기존 head가 가리키고있는 commit의 tree file과 비교
     }
+    free_all_sub_trees_and_blobs(t);
+    free(t);
+    
 }
 //./gitt branch [branch name]
 void gitt_branch(int argc, char *argv[])

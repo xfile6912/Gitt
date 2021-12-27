@@ -46,8 +46,17 @@ void make_object_path(char *object_path, char *hashed_str);
 void byte_to_hex(char *hex, unsigned char *byte);
 //특정 file_path와 file의 size를 받아 blob파일로 만들어주고, blob_file의 hashed string을 반환, 파일의 상대주소 이용
 void create_blob_file(char *hashed_str, char *file_path, off_t file_size);
-void create_tree_file(char *hashed_str, char *folder_path);
+
+
+//tree_item t를 받아 tree_file을 생성해줌
+void create_tree_file(struct tree_item *t);
+
+//tree_item t와 commit message를 받아 커밋 파일을 만듦, commit_file의 hashed string을 반환
+void create_commit_file(char * hashed_str, struct tree_item *t, char * commit_msg, char * parent);
+
 //index파일의 내용을 읽어 tree 자료구조로 만듦, 만약 index파일이 없으면 0 반환, 있으면 1반환
 int read_index_file_to_tree(struct tree_item *t);
 
+//tree item t에 속해있는 모든 sub tree 및 blob구조를 free 해줌
+void free_all_sub_trees_and_blobs(struct tree_item *t);
 #endif
