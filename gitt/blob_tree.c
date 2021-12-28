@@ -43,7 +43,7 @@ void tree_item_hash_delete_func(struct hash_elem *e, void *aux)
     free(tre_item);
 }
 
-//
+
 void byte_to_hex(char *hex, unsigned char *byte)
 {
     int i;
@@ -51,7 +51,7 @@ void byte_to_hex(char *hex, unsigned char *byte)
     for (i = 0; i < 20; i++)
         sprintf(ptr + 2 * i, "%02x", byte[i]);
 }
-//파일 path를 타고 재귀적으로 탐색하여 tree 자료구조를 완성
+
 void dfs_path_and_make_tree(struct tree_item *t, char *hashed_str, char *file_path)
 {
     char *next_path = strchr(file_path, '/'); //해당 파일의 경로가 폴더 경로를 포함하고 있는지 ex)file_path=foo/bar.c, next_path=/bar.c
@@ -93,7 +93,6 @@ void dfs_path_and_make_tree(struct tree_item *t, char *hashed_str, char *file_pa
     }
 }
 
-//tree item에 hashed_str을 부여
 void give_hashed_str_to_tree(struct tree_item *t)
 {
     struct hash_iterator it;

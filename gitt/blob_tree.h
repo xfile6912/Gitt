@@ -48,6 +48,12 @@ void byte_to_hex(char *hex, unsigned char *byte);
 void create_blob_file(char *hashed_str, char *file_path, off_t file_size);
 
 
+//파일 path를 타고 재귀적으로 탐색하여 tree 자료구조를 생성
+void dfs_path_and_make_tree(struct tree_item *t, char *hashed_str, char *file_path);
+
+//tree item을 재귀적으로 순회하며 hashed_str을 부여
+void give_hashed_str_to_tree(struct tree_item *t);
+
 //tree_item t를 받아 tree_file을 생성해줌
 void create_tree_file(struct tree_item *t);
 
