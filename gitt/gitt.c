@@ -252,7 +252,7 @@ void gitt_commit(int argc, char *argv[])
     // HEAD 파일로부터 현재 브랜치 얻어옴
     head = fopen(".gitt/HEAD", "r");
     fscanf(head, "%s", head_path);
-
+    fclose(head);
     if (argc <= 2)
     {
         print_error("commit message가 필요합니다.");
@@ -282,7 +282,48 @@ void gitt_commit(int argc, char *argv[])
     //현재 head가 가리키고 있는 것이 refs가 아닌 커밋 hash인 경우
     if (strncmp(head_path, ".gitt/refs/heads", 16))
     {
-        //기존 head가 가리키고 있는 commit의 tree file과 비교
+        //기존 head가 가리키고 있는 commit의 hash를 parent로 읽어옴
+        char parent[MAX_LINE];
+        strcpy(parent, head_path);
+        
+
+        // parent를 이용해 head가 가리키고 있는 파일 경로를 얻고
+        char commit_path[MAX_LINE];
+        make_object_path(commit_path, parent);
+
+        // parent commit의 tree 정보를 가져옴
+        FILE *commit_file = fopen(commit_path, "r");
+        if (!commit_file)
+        {
+            print_error("commit file이 존재하지 않습니다.");
+            free_all_sub_trees_and_blobs(t);
+            free(t);
+            return ;
+        }
+        char temp[MAX_LINE];            //앞의 "tree" 저장
+        char tree_hashed_str[MAX_LINE]; // commit이 가리키는 tree의 hashed_str저장
+        fscanf(commit_file, "%s %s", temp, tree_hashed_str);
+        fclose(commit_file);
+
+        //현재 index를  통해 만든 tree와 기존의 commit이 나타내는 tree가 달라 commit이 가능한 경우
+        if (strcmp(t->hashed_str, tree_hashed_str))
+        {
+            //현재 head를 새로 갱신
+            FILE *head = fopen(".gitt/HEAD", "w");
+            // tree 자료구조 기반으로 새로운  commit 파일 생성
+            char hashed_str[MAX_LINE];
+            create_commit_file(hashed_str, t, commit_msg, parent);
+            //현재 head가 가리키는 파일에 commit에 대한 hashed string 기록
+            fprintf(head, "%s", hashed_str);
+            fclose(head);
+        }
+        else
+        {
+            print_error("commit을 위한 변동사항이 없습니다.");
+            free_all_sub_trees_and_blobs(t);
+            free(t);
+            return ;
+        }
     }
     //현재 head가 refs(branch)를 가리키지만 .gitt/refs/heads에 없는 경우(첫 커밋인 경우), .gitt/refs/heads에 해당 refs(branch) 파일 생성
     else if (!is_file_exist(head_path))
@@ -305,6 +346,7 @@ void gitt_commit(int argc, char *argv[])
         //기존 head가 가리키고 있는 commit을 읽어옴
         char parent[MAX_LINE];
         fscanf(now_branch, "%s", parent);
+        fclose(now_branch);
 
         // parent를 이용해 head가 가리키고 있는 파일 경로를 얻고
         char commit_path[MAX_LINE];
@@ -315,12 +357,13 @@ void gitt_commit(int argc, char *argv[])
         if (!commit_file)
         {
             print_error("commit file이 존재하지 않습니다.");
+            free_all_sub_trees_and_blobs(t);
+            free(t);
+            return ;
         }
         char temp[MAX_LINE];            //앞의 "tree" 저장
         char tree_hashed_str[MAX_LINE]; // commit이 가리키는 tree의 hashed_str저장
         fscanf(commit_file, "%s %s", temp, tree_hashed_str);
-
-        fclose(now_branch);
         fclose(commit_file);
 
         //현재 index를  통해 만든 tree와 기존의 commit이 나타내는 tree가 달라 commit이 가능한 경우
@@ -336,7 +379,12 @@ void gitt_commit(int argc, char *argv[])
             fclose(now_branch);
         }
         else
+        {
             print_error("commit을 위한 변동사항이 없습니다.");
+            free_all_sub_trees_and_blobs(t);
+            free(t);
+            return ;
+        }
     }
     free_all_sub_trees_and_blobs(t);
     free(t);
