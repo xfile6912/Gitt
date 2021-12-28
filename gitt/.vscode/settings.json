@@ -15,6 +15,9 @@
         "errno.h": "c",
         "stat.h": "c",
         "stdbool.h": "c",
-        "blob_tree.h": "c"
+        "blob_tree.h": "c",
+        "__hash_table": "c",
+        "unordered_map": "c",
+        "utility": "c"
     }
 }

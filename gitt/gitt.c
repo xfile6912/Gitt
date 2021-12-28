@@ -146,21 +146,21 @@ int is_file_exist(char *file_path)
     return 0;
 }
 
-int read_index_file_to_hash(struct hash *idx_hash)
+int read_index_file_to_list(struct list *idx_list)
 {
     FILE *index = fopen(".gitt/index", "r");
     if (index) // INDEX파일이 존재한다면
     {
         int res;
 
-        while (1) // index 파일을 한 줄씩 읽어 idx_hash에 저장
+        while (1) // index 파일을 한 줄씩 읽어 idx_list에 저장
         {
             struct blob_item *blb_item = (struct blob_item *)malloc(sizeof(struct blob_item));
             res = fscanf(index, "%s %s", blb_item->hashed_str, blb_item->file_name);
             if (res == EOF)
                 break;
 
-            hash_insert(idx_hash, &(blb_item->elem));
+            list_insert_ordered(idx_list, &(blb_item->elem), blob_item_less_func, NULL);
         }
         fclose(index);
         return 1;
@@ -193,13 +193,13 @@ void gitt_add(int argc, char *argv[])
             }
         }
 
-        // index파일의 정보를 저장할 hash
-        struct hash idx_hash;
-        hash_init(&idx_hash, blob_item_hash_func, blob_item_hash_less_func, NULL);
-        // index파일로부터 idx_hash로 정보를 읽어옴
-        read_index_file_to_hash(&idx_hash);
+        // index파일의 정보를 저장할 list
+        struct list idx_list;
+        list_init(&idx_list);
+        // index파일로부터 idx_list로 정보를 읽어옴
+        read_index_file_to_list(&idx_list);
 
-        // argument로 받은 파일을 hash 자료구조에 추가하거나, 수정
+        // argument로 받은 파일을 list 자료구조에 추가하거나, 수정
         for (int i = 2; i < argc; i++)
         {
 
@@ -212,32 +212,32 @@ void gitt_add(int argc, char *argv[])
             // blob파일을 만들고 blob파일에 대한 hashed_str을 저장
             create_blob_file(blb_item->hashed_str, blb_item->file_name, file_stat.st_size);
 
-            struct hash_elem *e = hash_find(&idx_hash, &blb_item->elem);
+            struct list_elem *e = list_find(&idx_list, &blb_item->elem, blob_item_less_func);
             if (e) //해당 파일이 이미 idx_hash에 있다면
             {
                 //기존의 blob_item의 hashed_str을 새로 생성한 blob_file의 hashed_str로 바꾸어 줌
-                struct blob_item *existed_item = hash_entry(e, struct blob_item, elem);
+                struct blob_item *existed_item = list_entry(e, struct blob_item, elem);
                 strcpy(existed_item->hashed_str, blb_item->hashed_str);
                 free(blb_item);
             }
             else //없으면 추가해줌
             {
-                hash_insert(&idx_hash, &blb_item->elem);
+                list_insert_ordered(&idx_list, &blb_item->elem, blob_item_less_func, NULL);
             }
         }
 
-        // hash의 내용을 새로 index파일에 써줌
+        // list의 내용을 새로 index파일에 써주 면서 동적 할당 해제
         FILE *index = fopen(".gitt/index", "w");
-        struct hash_iterator it;
-
-        hash_first(&it, &idx_hash);
-        while (hash_next(&it))
+        struct list_elem *e;
+        for (e = list_begin(&idx_list); e != list_end(&idx_list);)
         {
-            struct blob_item *blb_item = hash_entry(hash_cur(&it), struct blob_item, elem);
+            struct blob_item *blb_item = list_entry(e, struct blob_item, elem);
             fprintf(index, "%s %s\n", blb_item->hashed_str, blb_item->file_name);
+
+            e = list_remove(e);
+            free(blb_item);
         }
 
-        hash_destroy(&idx_hash, blob_item_hash_delete_func);
         fclose(index);
     }
     else
@@ -285,7 +285,6 @@ void gitt_commit(int argc, char *argv[])
         //기존 head가 가리키고 있는 commit의 hash를 parent로 읽어옴
         char parent[MAX_LINE];
         strcpy(parent, head_path);
-        
 
         // parent를 이용해 head가 가리키고 있는 파일 경로를 얻고
         char commit_path[MAX_LINE];
@@ -298,7 +297,7 @@ void gitt_commit(int argc, char *argv[])
             print_error("commit file이 존재하지 않습니다.");
             free_all_sub_trees_and_blobs(t);
             free(t);
-            return ;
+            return;
         }
         char temp[MAX_LINE];            //앞의 "tree" 저장
         char tree_hashed_str[MAX_LINE]; // commit이 가리키는 tree의 hashed_str저장
@@ -322,7 +321,7 @@ void gitt_commit(int argc, char *argv[])
             print_error("commit을 위한 변동사항이 없습니다.");
             free_all_sub_trees_and_blobs(t);
             free(t);
-            return ;
+            return;
         }
     }
     //현재 head가 refs(branch)를 가리키지만 .gitt/refs/heads에 없는 경우(첫 커밋인 경우), .gitt/refs/heads에 해당 refs(branch) 파일 생성
@@ -359,7 +358,7 @@ void gitt_commit(int argc, char *argv[])
             print_error("commit file이 존재하지 않습니다.");
             free_all_sub_trees_and_blobs(t);
             free(t);
-            return ;
+            return;
         }
         char temp[MAX_LINE];            //앞의 "tree" 저장
         char tree_hashed_str[MAX_LINE]; // commit이 가리키는 tree의 hashed_str저장
@@ -383,7 +382,7 @@ void gitt_commit(int argc, char *argv[])
             print_error("commit을 위한 변동사항이 없습니다.");
             free_all_sub_trees_and_blobs(t);
             free(t);
-            return ;
+            return;
         }
     }
     free_all_sub_trees_and_blobs(t);

@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdlib.h>
-#include "hash.h"
+#include "list.h"
 #include "blob_tree.h"
 
 char cwd[MAX_LINE];
@@ -38,6 +38,6 @@ void print_error(char *msg);
 int is_inited();
 // file이 존재하면 1 반환, 존재하지 않으면 0 반환
 int is_file_exist(char *file_path);
-//index file로부터 idx_hash 자료구조로 읽어옴, 없으면 0반환, 있으면 1반환
-int read_index_file_to_hash(struct hash *idx_hash);
+//index file로부터 idx_list 자료구조로 읽어옴, 없으면 0반환, 있으면 1반환
+int read_index_file_to_list(struct list *idx_list);
 #endif
