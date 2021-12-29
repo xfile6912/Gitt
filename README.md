@@ -69,7 +69,32 @@
 
 
 #### `./gitt commit [commit message]`
-  - staging area에 있는 파일들을 commit하고, commit message를 남김
+- staging area에 있는 파일들을 commit하고, commit message를 남김
+  ```
+  $ ./gitt commit "first commit"
+  ```
+  - `아래와 같이 master에 해당 commit의 hash를 저장한 것을 확인할 수 있음`
+  - `commit hash를 통해 commit file을 찾아가 보면 아래와 같이, 해당 commit의 tree에 대한 hash와, commit msg가 저장되어 있는 것을 확인할 수 있음`
+  - `tree hash를 통해 tree file을 찾아가 보면, 해당 tree에 속한 blob 파일들과, tree file들의 정보가 저장되어 있는 것을 확인 할 수 있음`<br><br>
+  	<img width="900" src="https://user-images.githubusercontent.com/57051773/147627965-f0bcc32c-9b15-45d8-82e8-cf7a112f2dc9.png">
+- index 파일의 내용이 최근 커밋과 동일한 상태에서 다시 커밋 실행
+  ```
+  $ ./gitt commit "second commit"
+  ```
+  - `최근 커밋과 index 파일의 내용이 동일한 경우, 아래와 같이 오류를 출력하는 것을 확인할 수 있음`<br><br>
+  	<img width="600" src="https://user-images.githubusercontent.com/57051773/147628259-e14571d3-df3d-4e35-878f-5e6580af7f4c.png">
+
+- 새로운 파일 만들고 staged area에 올린 이후 두 번째 커밋 실행
+  ```
+  $ echo helloworld3 > temp4.txt
+  $ ./gitt add temp4.txt
+  $ ./gitt commit "second commit"
+  ```
+  - `아래와 같이 master에 새로운 commit의 hash를 저장한 것을 확인할 수 있음`
+  - `새로운 commit의 commit file에는 아래와 같이, tree에 대한 hash와, 이전 commit 정보(parent), commit msg가 저장되어 있는 것을 확인할 수 있음`
+  - `tree hash를 통해 tree file을 찾아가 보면, 해당 tree에 속한 blob 파일들과, tree file들의 정보가 저장되어 있는 것을 확인 할 수 있음`<br><br>
+ 	 <img width="900" src="https://user-images.githubusercontent.com/57051773/147628707-ee456ddf-98b5-48eb-bf0f-b5e082e1731e.png">
+     
 #### `./gitt status`
   - 현재 gitt의 상태를 출력
 #### `./gitt branch [branch name]`
