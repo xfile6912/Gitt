@@ -391,7 +391,81 @@ void gitt_commit(int argc, char *argv[])
 //./gitt branch [branch name]
 void gitt_branch(int argc, char *argv[])
 {
-    printf("gitt branch\n");
+    FILE *head;
+    char head_path[MAX_LINE];
+    // HEAD 파일로부터 현재 브랜치 얻어옴
+    head = fopen(".gitt/HEAD", "r");
+    fscanf(head, "%s", head_path);
+    fclose(head);
+
+    //./gitt branch만 들어온 경우 현재 branch 출력
+    if(argc==2)
+    {
+        //head가 branch를 가리키고 있는 경우
+        if (!strncmp(head_path, ".gitt/refs/heads", 16))
+        {
+            char now_branch_name[MAX_LINE];
+            strcpy(now_branch_name, head_path+17);
+            printf("현재 Branch: %s\n", now_branch_name);
+        }
+        else//head가 커밋 해시를 가리키고 있는 경우
+        {
+            printf("현재 HEAD: %s [head가 branch를 가리키고 있지 않음]\n", head_path);
+        }
+        return;
+    }
+
+    if (argc != 3)
+    {
+        print_error("올바른 branch name이 필요합니다.");
+        return;
+    }
+
+    //branch 이름과 저장할 path를 생성
+    char branch_name[MAX_LINE];
+    char branch_path[MAX_LINE];
+    strcpy(branch_name, argv[2]);
+    strcpy(branch_path, ".gitt/refs/heads/");
+    strcat(branch_path, branch_name);
+
+    //해당 branch가 이미 존재하는 브랜치라면
+    if(is_file_exist(branch_path))
+    {
+        print_error("이미 존재하는 branch입니다.");
+        return;
+    }
+
+    //현재 head가 가리키고 있는 것이 refs가 아닌 커밋 hash인 경우
+    if (strncmp(head_path, ".gitt/refs/heads", 16))
+    {
+        //새로운 브랜치 파일을 생성하고 해당 파일에 커밋 hash내용을 적어줌
+        FILE *branch = fopen(branch_path, "w");
+        fprintf(branch, "%s", head_path);
+        fclose(branch);
+    }
+    //현재 head가 refs(branch)를 가리키지만 .gitt/refs/heads에 파일로써 존재하지 않는 경우 오류 출력
+    else if (!is_file_exist(head_path))
+    {
+        print_error("새로운 브랜치를 생성할 수 없습니다, 기존 branch의 파일이 존재하지 않습니다.");
+    }
+    //있는 경우
+    else
+    {
+        //현재 head가 가리키는 파일
+        FILE *now_branch = fopen(head_path, "r");
+
+        //기존 branch가 가리키고 있는 commit hash를 읽어옴
+        char commit_hash[MAX_LINE];
+        fscanf(now_branch, "%s", commit_hash);
+        fclose(now_branch);
+
+        //새로운 브랜치 파일을 생성하고 해당 파일에 커밋 hash내용을 적어줌
+        FILE *new_branch = fopen(branch_path, "w");
+        fprintf(new_branch, "%s", commit_hash);
+        fclose(new_branch);
+
+    }
+
 }
 //./gitt checkout [branch name] or [commit hash]
 void gitt_checkout(int argc, char *argv[])
