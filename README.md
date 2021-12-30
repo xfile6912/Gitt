@@ -94,15 +94,13 @@
   - `새로운 commit의 commit file에는 아래와 같이, tree에 대한 hash와, 이전 commit 정보(parent), commit msg가 저장되어 있는 것을 확인할 수 있음`
   - `tree hash를 통해 tree file을 찾아가 보면, 해당 tree에 속한 blob 파일들과, tree file들의 정보가 저장되어 있는 것을 확인 할 수 있음`<br><br>
  	 <img width="900" src="https://user-images.githubusercontent.com/57051773/147628707-ee456ddf-98b5-48eb-bf0f-b5e082e1731e.png">
-     
-#### `./gitt status`
-  - 현재 gitt의 상태를 출력
+
 #### `./gitt branch [branch name]`
   - 새로운 branch를 생성
 #### `./gitt checkout [branch name]`
   - 다른 branch로 head를 이동
-
-
+#### `./gitt status`
+  - 현재 gitt의 상태를 출력
 
 #### 기타
 - 따옴표 처리가 가능한 argument parser
