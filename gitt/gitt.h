@@ -63,5 +63,5 @@ void create_files_using_tree_hash(char *tree_hash, char *relative_path);
 
 
 //from에 해당하는 파일을, to로 복사
-void file_copy(char *from_name, char *to_name);
+void file_copy(char *from_path, char *to_path);
 #endif

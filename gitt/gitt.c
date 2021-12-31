@@ -558,19 +558,26 @@ void create_files_using_tree_hash(char *tree_hash, char *relative_path)
     fclose(tree_file);
 }
 
-void file_copy(char *from_name, char *to_name)
+void file_copy(char *from_path, char *to_path)
 {
-    FILE *from = fopen(from_name, "r");
-    FILE *to = fopen(to_name, "w");
+    FILE *from = fopen(from_path, "r");
+    FILE *to = fopen(to_path, "w");
     char c;
-    while (!feof(from))
+    while (1)
     {
         c = fgetc(from);
+        if(feof(from))
+            break;
         fputc(c, to);
     }
 
     fclose(from);
     fclose(to);
+
+    //파일 권한 복사
+    struct stat file_stat;
+    stat(from_path, &file_stat);
+    chmod(to_path, file_stat.st_mode);
 }
 
 void update_files(char *commit_hash)
