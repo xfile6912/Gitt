@@ -49,7 +49,6 @@ void gitt_help()
     printf("./gitt help\n");
 }
 
-//./gitt init
 void gitt_init(int argc, char *argv[])
 {
     int result;
@@ -76,13 +75,12 @@ void gitt_init(int argc, char *argv[])
 
     printf("빈 gitt 저장소로 초기화 하였습니다. (%s%s)\n", cwd, "/.gitt");
 }
-//./gitt status
 void gitt_status(int argc, char *argv[])
 {
     printf("gitt status\n");
 }
 
-void gitt_add_dot(char *cur_folder, FILE *index)
+void recursive_add(char *cur_folder, FILE *index)
 {
     DIR *dir;
     struct dirent *file;
@@ -101,25 +99,22 @@ void gitt_add_dot(char *cur_folder, FILE *index)
     while ((file = readdir(dir)))
     {
 
-        // cur folder 내의 파일들 및 폴더 까지의 상대 경로를 저장
+        // cur folder에 속한 파일들 및 폴더들 까지의 상대 경로를 저장
         char file_relative_path[MAX_LINE];
         memset(file_relative_path, '\0', MAX_LINE);
-
-        // cur folder(상대경로)까지의 경로를 path에 저장
         strcpy(file_relative_path, cur_folder);
-        if (strcmp(file_relative_path, "")) //만약 cur_folder까지의 상대경로가 "", 즉 .gitt이 관리하는 가장 상위 폴더인 경우이면, "/"를 넣어줄 필요가 없음
-        {
-            strcat(file_relative_path, "/");
-        }
         strcat(file_relative_path, file->d_name);
 
+        //순회한 파일의 정보를 file_stat에 저장
         stat(file_relative_path, &file_stat);
         if (S_ISDIR(file_stat.st_mode)) // directory이고 숨김폴더가 아니라면
         {
             if (file->d_name[0] != '.')
             {
+                //폴더 경로이므로 뒤에 / 붙여줌
+                strcat(file_relative_path, "/");
                 //폴더 안에서 재귀 적으로 실행되도록 함
-                gitt_add_dot(file_relative_path, index);
+                recursive_add(file_relative_path, index);
             }
         }
         else // directory가 아니라면, blob파일을 생성하고, index에 저장
@@ -177,7 +172,7 @@ void gitt_add(int argc, char *argv[])
         // index 파일을 만듦
         index = fopen(".gitt/index", "w");
         //현재 폴더안에 모든 파일 및 폴더를 index에 추가
-        gitt_add_dot("", index);
+        recursive_add("", index);
         fclose(index);
     }
     else if (argc >= 3)
@@ -399,18 +394,18 @@ void gitt_branch(int argc, char *argv[])
     fclose(head);
 
     //./gitt branch만 들어온 경우 현재 branch 출력
-    if(argc==2)
+    if (argc == 2)
     {
-        //head가 branch를 가리키고 있는 경우
+        // head가 branch를 가리키고 있는 경우
         if (!strncmp(head_path, ".gitt/refs/heads", 16))
         {
             char now_branch_name[MAX_LINE];
-            strcpy(now_branch_name, head_path+17);
-            printf("현재 Branch: %s\n", now_branch_name);
+            strcpy(now_branch_name, head_path + 17);
+            printf("current branch: %s\n", now_branch_name);
         }
-        else//head가 커밋 해시를 가리키고 있는 경우
+        else // head가 커밋 해시를 가리키고 있는 경우
         {
-            printf("현재 HEAD: %s [head가 branch를 가리키고 있지 않음]\n", head_path);
+            printf("current head: %s [head가 branch를 가리키고 있지 않음]\n", head_path);
         }
         return;
     }
@@ -421,7 +416,7 @@ void gitt_branch(int argc, char *argv[])
         return;
     }
 
-    //branch 이름과 저장할 path를 생성
+    // branch 이름과 저장할 path를 생성
     char branch_name[MAX_LINE];
     char branch_path[MAX_LINE];
     strcpy(branch_name, argv[2]);
@@ -429,7 +424,7 @@ void gitt_branch(int argc, char *argv[])
     strcat(branch_path, branch_name);
 
     //해당 branch가 이미 존재하는 브랜치라면
-    if(is_file_exist(branch_path))
+    if (is_file_exist(branch_path))
     {
         print_error("이미 존재하는 branch입니다.");
         return;
@@ -463,14 +458,203 @@ void gitt_branch(int argc, char *argv[])
         FILE *new_branch = fopen(branch_path, "w");
         fprintf(new_branch, "%s", commit_hash);
         fclose(new_branch);
+    }
+}
 
+void delete_all_files_in_folder(char *cur_folder)
+{
+    DIR *dir;
+    struct dirent *file;
+    struct stat file_stat;
+    char cur_folder_absolute[MAX_LINE]; //절대 주소 저장
+
+    // cur folder를 통해 cur folder까지의 절대경로를 알아냄
+    strcpy(cur_folder_absolute, cwd);
+    strcat(cur_folder_absolute, "/");
+    strcat(cur_folder_absolute, cur_folder);
+
+    //절대 경로를 통해 cur folder를 open
+    dir = opendir(cur_folder_absolute);
+
+    // cur folder 내의 파일들 및 폴더들 순회
+    while ((file = readdir(dir)))
+    {
+
+        // cur folder에 속한 파일들 및 폴더들 까지의 상대 경로를 저장
+        char file_relative_path[MAX_LINE];
+        memset(file_relative_path, '\0', MAX_LINE);
+        strcpy(file_relative_path, cur_folder);
+        strcat(file_relative_path, file->d_name);
+
+        //순회한 파일의 정보를 file_stat에 저장
+        stat(file_relative_path, &file_stat);
+        if (S_ISDIR(file_stat.st_mode)) // directory이고 숨김폴더가 아니라면
+        {
+            if (file->d_name[0] != '.')
+            {
+                //폴더 경로이므로 뒤에 / 붙여줌
+                strcat(file_relative_path, "/");
+                //폴더 안에서 재귀적으로 파일들을 삭제하도록 함
+                delete_all_files_in_folder(file_relative_path);
+                //폴더 안의 파일들을 다 삭제한 후에 폴더 삭제
+                rmdir(file_relative_path);
+            }
+        }
+        else //파일이라면 해당 파일 삭제
+        {
+            remove(file_relative_path);
+        }
+    }
+    closedir(dir);
+}
+
+void create_files_using_tree_hash(char *tree_hash, char *relative_path)
+{
+
+    char class[10], hash[MAX_LINE], file_name[MAX_LINE];
+
+    // tree hash를 이용하여 tree 파일에 대한 path 생성
+    char tree_path[MAX_LINE];
+    make_object_path(tree_path, tree_hash);
+
+    // tree파일에 속한 파일들의 내용을 읽어옴
+    FILE *tree_file = fopen(tree_path, "r");
+    while (1)
+    {
+        //한 줄씩 읽으면서,tree파일에 속한 파일의 종류, 해시, 파일 이름을 저장
+        int res = fscanf(tree_file, "%s %s %s", class, hash, file_name);
+        if (res == EOF) //파일의 끝
+            break;
+
+        if (!strcmp(class, "tree")) //속한 파일이 tree(폴더)인 경우
+        {
+            //속한 폴더에 대한 상대경로 생성
+            char folder_relative_path[MAX_LINE];
+            strcpy(folder_relative_path, relative_path);
+            strcat(folder_relative_path, file_name);
+            strcat(folder_relative_path, "/");
+
+            //상대경로를 이용하여 속한 폴더에 대한 실제 폴더 생성
+            mkdir(folder_relative_path, 0755);
+
+            //속한 폴더에 대한 tree_hash와 path를 통해 파일들을 재귀적으로 생성
+            create_files_using_tree_hash(hash, folder_relative_path);
+        }
+        if (!strcmp(class, "blob")) //속한 파일이 blob(파일)인 경우
+        {
+            //속한 파일에 대한 상대경로 생성
+            char file_relative_path[MAX_LINE];
+            strcpy(file_relative_path, relative_path);
+            strcat(file_relative_path, file_name);
+
+            // hash를 이용해 blob파일에 대한 path 생성
+            char blob_path[MAX_LINE];
+            make_object_path(blob_path, hash);
+
+            // blob path를 통해 얻은 파일을, 속한파일에 대한 상대경로로 카피
+            file_copy(blob_path, file_relative_path);
+        }
+    }
+    fclose(tree_file);
+}
+
+void file_copy(char *from_name, char *to_name)
+{
+    FILE *from = fopen(from_name, "r");
+    FILE *to = fopen(to_name, "w");
+    char c;
+    while (!feof(from))
+    {
+        c = fgetc(from);
+        fputc(c, to);
     }
 
+    fclose(from);
+    fclose(to);
 }
+
+void update_files(char *commit_hash)
+{
+    char commit_path[MAX_LINE];
+    char temp[MAX_LINE];
+    char tree_hash[MAX_LINE];
+
+    //숨김폴더를 제외한 모든 폴더랑 파일을 삭제
+    delete_all_files_in_folder("");
+
+    // commit hash를 이용해서 commit_path를 생성
+    make_object_path(commit_path, commit_hash);
+
+    // commit_path를 이용해 해당 커밋의 tree를 읽어옴
+    FILE *commit_file = fopen(commit_path, "r");
+    // temp에는 tree가 저장되고, tree_hash에 commit의 tree에 대한 hash값이 저장됨
+    fscanf(commit_file, "%s %s", temp, tree_hash);
+    fclose(commit_file);
+
+    // commit의 tree hash를 이용해 파일들을 재귀적으로 탐색하며 생성
+    create_files_using_tree_hash(tree_hash, "");
+}
+
 //./gitt checkout [branch name] or [commit hash]
 void gitt_checkout(int argc, char *argv[])
 {
-    printf("gitt checkout\n");
+
+    if (argc != 3)
+    {
+        print_error("올바른 branch name이나, commit hash가 필요합니다.");
+        return;
+    }
+
+    //가장 먼저 branch라고 가정하여, branch path를 생성
+    char branch_name[MAX_LINE];
+    char branch_path[MAX_LINE];
+    strcpy(branch_name, argv[2]);
+    strcpy(branch_path, ".gitt/refs/heads/");
+    strcat(branch_path, branch_name);
+
+    //해당 branch가 존재하면
+    if (is_file_exist(branch_path))
+    {
+        //해당 branch로 checkout해줌
+        FILE *head = fopen(".gitt/HEAD", "w");
+        fprintf(head, "%s", branch_path);
+        fclose(head);
+
+        //해당 branch의 commit_hash 읽어옴
+        char commit_hash[MAX_LINE];
+        FILE *branch = fopen(branch_path, "r");
+        fscanf(branch, "%s", commit_hash);
+        fclose(branch);
+
+        //해당 branch의 commit_hash에 해당하는 내용으로 working directory를 바꾸어줌
+        update_files(commit_hash);
+
+        printf("checkout 완료: %s\n", branch_name);
+        return;
+    }
+
+    //그 다음으로는 commit hash라고 가정하고, commit hash를 통해 commit_file의 path를 생성
+    char commit_hash[MAX_LINE];
+    char commit_path[MAX_LINE];
+    strcpy(commit_hash, argv[2]);
+    make_object_path(commit_path, commit_hash);
+
+    // commit file에 대한 path에 파일이 존재하면
+    if (is_file_exist(commit_path))
+    {
+        //해당 commit hash로 checkout해줌
+        FILE *head = fopen(".gitt/HEAD", "w");
+        fprintf(head, "%s", commit_hash);
+        fclose(head);
+
+        //해당 commit_hash에 해당하는 내용으로 working directory를 바꾸어줌
+        update_files(commit_hash);
+
+        printf("checkout 완료: %s\n", commit_hash);
+        return;
+    }
+
+    print_error("존재하지 않는 branch이거나 commit hash입니다.");
 }
 
 void print_error(char *msg)
