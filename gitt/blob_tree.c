@@ -185,10 +185,7 @@ void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
     //해당 blob file이 없으면 blob 파일 생성
     if (!is_file_exist(blob_path))
     {
-
-        fp = fopen(blob_path, "w");
-        fwrite(buffer, file_size, sizeof(unsigned char), fp);
-        fclose(fp);
+        file_copy(file_path, blob_path);
     }
 
     free(buffer);
