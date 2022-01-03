@@ -25,8 +25,8 @@ void gitt_init(int argc, char *argv[]);
 //gitt status
 void gitt_status(int argc, char *argv[]);
 
-//cur folder 안의 폴더 및 하위 파일들을 재귀적으로 탐색하여, blob파일로 만들고 index파일에 정보를 저장해 줌, ./gitt add . 시 사용
-void recursive_add(char *cur_folder, FILE *index);
+//working directory를 recursive하게 순회하며 list에 추가
+void wd_recursive_list(char *cur_folder, struct list *wd_list);
 
 //gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[]);
@@ -61,6 +61,8 @@ void delete_all_files_in_folder(char *cur_folder);
 //tree_hash와, tree_hash가 가리키는 폴더에 대한 상대경로를 이용하여, 해당 tree_hash에 속하는 폴더 및 파일들을 재귀적으로 생성
 void create_files_using_tree_hash(char *tree_hash, char *relative_path);
 
+//list를 받아 index파일에 써주고, list의 모든 element 제거
+void write_list_to_index_file(struct list *li);
 
 //from에 해당하는 파일을, to로 복사
 void file_copy(char *from_path, char *to_path);

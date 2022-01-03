@@ -75,17 +75,17 @@ void gitt_init(int argc, char *argv[])
 
     printf("빈 gitt 저장소로 초기화 하였습니다. (%s%s)\n", cwd, "/.gitt");
 }
+
 void gitt_status(int argc, char *argv[])
 {
-    printf("gitt status\n");
 }
 
-void recursive_add(char *cur_folder, FILE *index)
+void wd_recursive_list(char *cur_folder, struct list *wd_list)
 {
     DIR *dir;
     struct dirent *file;
     struct stat file_stat;
-    char cur_folder_absolute[MAX_LINE]; //절대 주소 저장
+    char cur_folder_absolute[MAX_LINE]; // cur folder의 절대 주소 저장
 
     // curfolder를 통해 curfolder까지의 절대경로를 알아냄
     strcpy(cur_folder_absolute, cwd);
@@ -114,16 +114,21 @@ void recursive_add(char *cur_folder, FILE *index)
                 //폴더 경로이므로 뒤에 / 붙여줌
                 strcat(file_relative_path, "/");
                 //폴더 안에서 재귀 적으로 실행되도록 함
-                recursive_add(file_relative_path, index);
+                wd_recursive_list(file_relative_path, wd_list);
             }
         }
-        else // directory가 아니라면, blob파일을 생성하고, index에 저장
+        else // directory가 아니라면, 파일의 hashed_str을 생성하고, list에 저장
         {
             char hashed_str[MAX_LINE];
             memset(hashed_str, '\0', MAX_LINE);
-            create_blob_file(hashed_str, file_relative_path, file_stat.st_size);
-            //+1을 해주는 이유는 cwd이후에 /가 하나 있기 때문
-            fprintf(index, "%s %s\n", hashed_str, file_relative_path);
+            // hashed_str 생성
+            get_file_hash(hashed_str, file_relative_path);
+
+            // item 생성하여 wd_list에 저장
+            struct blob_item *blb_item = (struct blob_item *)malloc(sizeof(struct blob_item));
+            strcpy(blb_item->hashed_str, hashed_str);
+            strcpy(blb_item->file_name, file_relative_path);
+            list_insert_ordered(wd_list, &(blb_item->elem), blob_item_less_func, NULL);
         }
     }
     closedir(dir);
@@ -163,16 +168,41 @@ int read_index_file_to_list(struct list *idx_list)
     return 0;
 }
 
+void write_list_to_index_file(struct list *li)
+{
+    // list의 내용을 새로 index파일에 써주 면서 동적 할당 해제
+    FILE *index = fopen(".gitt/index", "w");
+    struct list_elem *e;
+    for (e = list_begin(li); e != list_end(li);)
+    {
+        struct blob_item *blb_item = list_entry(e, struct blob_item, elem);
+        fprintf(index, "%s %s\n", blb_item->hashed_str, blb_item->file_name);
+
+        e = list_remove(e);
+        free(blb_item);
+    }
+
+    fclose(index);
+}
+
 //./gitt add [filename] .. or ./gitt add .
 void gitt_add(int argc, char *argv[])
 {
     if (argc == 3 && !strcmp(argv[2], ".")) //./gitt add .인 경우
     {
-        FILE *index;
         // index 파일을 만듦
-        index = fopen(".gitt/index", "w");
-        //현재 폴더안에 모든 파일 및 폴더를 index에 추가
-        recursive_add("", index);
+        FILE *index = fopen(".gitt/index", "w");
+
+        // 현재 woriking_directory의 정보를 저장할 list 초기화
+        struct list wd_list;
+        list_init(&wd_list);
+
+        //현재 working directory를 wd_list로 정보를 읽어옴
+        wd_recursive_list("", &wd_list);
+
+        //wd_list의 정보를 index파일에 써줌
+        write_list_to_index_file(&wd_list);
+
         fclose(index);
     }
     else if (argc >= 3)
@@ -205,7 +235,7 @@ void gitt_add(int argc, char *argv[])
             //파일의 size 정보를 알기 위해 file_stat에 파일의 정보 저장
             stat(blb_item->file_name, &file_stat);
             // blob파일을 만들고 blob파일에 대한 hashed_str을 저장
-            create_blob_file(blb_item->hashed_str, blb_item->file_name, file_stat.st_size);
+            create_blob_file(blb_item->hashed_str, blb_item->file_name);
 
             struct list_elem *e = list_find(&idx_list, &blb_item->elem, blob_item_less_func);
             if (e) //해당 파일이 이미 idx_hash에 있다면
@@ -221,19 +251,7 @@ void gitt_add(int argc, char *argv[])
             }
         }
 
-        // list의 내용을 새로 index파일에 써주 면서 동적 할당 해제
-        FILE *index = fopen(".gitt/index", "w");
-        struct list_elem *e;
-        for (e = list_begin(&idx_list); e != list_end(&idx_list);)
-        {
-            struct blob_item *blb_item = list_entry(e, struct blob_item, elem);
-            fprintf(index, "%s %s\n", blb_item->hashed_str, blb_item->file_name);
-
-            e = list_remove(e);
-            free(blb_item);
-        }
-
-        fclose(index);
+        write_list_to_index_file(&idx_list);
     }
     else
         print_error("파일 이름이 필요합니다.");
@@ -566,7 +584,7 @@ void file_copy(char *from_path, char *to_path)
     while (1)
     {
         c = fgetc(from);
-        if(feof(from))
+        if (feof(from))
             break;
         fputc(c, to);
     }

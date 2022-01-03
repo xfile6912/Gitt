@@ -155,29 +155,12 @@ void make_object_path(char *object_path, char *hashed_str)
     strcat(object_path, hashed_str + 2);
 }
 
-void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
+void create_blob_file(char *hashed_str, char *file_path)
 {
-    FILE *fp;
-    unsigned char *buffer;
-
     char blob_path[MAX_LINE];
-    unsigned char hashed_byte[MAX_LINE];
-
     memset(blob_path, '\0', MAX_LINE);
-    memset(hashed_byte, '\0', MAX_LINE);
 
-    //파일 오픈
-    fp = fopen(file_path, "r");
-
-    //파일로부터 내용으ㄹ 버퍼로 읽음
-    buffer = (unsigned char *)malloc(sizeof(unsigned char) * file_size);
-    memset(buffer, '\0', file_size);
-    fread(buffer, file_size, sizeof(unsigned char), fp);
-    fclose(fp);
-
-    //파일을 sha1 해시함수를 통해 해시
-    SHA1(hashed_byte, buffer, file_size);
-    byte_to_hex(hashed_str, hashed_byte);
+    get_file_hash(hashed_str, file_path);
 
     // hashed_str을 기반으로 폴더 생성하고 blob path 생성
     make_object_path(blob_path, hashed_str);
@@ -188,7 +171,7 @@ void create_blob_file(char *hashed_str, char *file_path, off_t file_size)
         file_copy(file_path, blob_path);
     }
 
-    free(buffer);
+    
 }
 
 void free_all_sub_trees_and_blobs(struct tree_item *t)
@@ -296,4 +279,31 @@ void create_commit_file(char * hashed_str, struct tree_item *t, char * commit_ms
     
     fclose(fp);
     free(buffer);
+}
+
+void get_file_hash(char *hashed_str, char *file_path)
+{
+    FILE *fp;
+    struct stat file_stat;
+    unsigned char *buffer;
+    unsigned char hashed_byte[MAX_LINE];
+    memset(hashed_byte, '\0', MAX_LINE);
+
+    //파일 정보 얻어옴
+    stat(file_path, &file_stat);
+    
+    //파일 오픈
+    fp = fopen(file_path, "r");
+
+    //파일로부터 내용으ㄹ 버퍼로 읽음
+    buffer = (unsigned char *)malloc(sizeof(unsigned char) * file_stat.st_size);
+    memset(buffer, '\0', file_stat.st_size);
+    fread(buffer, file_stat.st_size, sizeof(unsigned char), fp);
+    fclose(fp);
+
+    //파일을 sha1 해시함수를 통해 해시
+    SHA1(hashed_byte, buffer, file_stat.st_size);
+    byte_to_hex(hashed_str, hashed_byte);
+    free(buffer);
+    fclose(fp);
 }
