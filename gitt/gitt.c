@@ -78,6 +78,72 @@ void gitt_init(int argc, char *argv[])
 
 void gitt_status(int argc, char *argv[])
 {
+    if (argc != 2)
+    {
+        print_error("status는 어떠한 인자도 필요로 하지 않습니다.");
+        return;
+    }
+    // index파일의 정보를 저장할 list, 현재 woriking_directory의 list
+    struct list idx_list, wd_list;
+
+    list_init(&idx_list);
+    list_init(&wd_list);
+
+    // index파일로부터 idx_list로 정보를 읽어옴
+    read_index_file_to_list(&idx_list);
+    //현재 working directory를 wd_list로 정보를 읽어옴
+    wd_recursive_list("", &wd_list);
+
+    struct list_elem *wd_e, *e;
+    // wd_list를 순회하며 idx_list에 있는 파일들을 찾아내고 수정된 경우 출력
+    for (wd_e = list_begin(&wd_list); wd_e != list_end(&wd_list);)
+    {
+        struct list_elem *next_e = list_next(wd_e);
+
+        // wd_list의 e와 같은 파일명의 원소가, idx_list에도 있는지 확인
+        struct list_elem *idx_e = list_find(&idx_list, wd_e, blob_item_less_func);
+        //파일명이 같은 원소가 있고
+        if (idx_e != NULL)
+        {
+            struct blob_item *wd_file = list_entry(wd_e, struct blob_item, elem);
+            struct blob_item *idx_file = list_entry(idx_e, struct blob_item, elem);
+            // hashed str이 서로 달라 해당 파일이 수정된 경우라면, 화면에 modified 출력을 해주어야 함
+            if (strcmp(wd_file->hashed_str, idx_file->hashed_str))
+                printf("modified: %s\n", wd_file->file_name);
+            //해당 원소를 두 list에서 지워줌(이렇게 해주면 최종적으로 idx_list는 삭제된 파일들의 list가, wd_list는 새로 생성된 파일들의 list가 될 것임)
+            list_remove(wd_e);
+            list_remove(idx_e);
+            // heap영역에도 할당되어 있기 대문에 동적할당 해제
+            free(wd_file);
+            free(idx_file);
+        }
+        wd_e = next_e;
+    }
+
+    if (!list_empty(&wd_list))//새로 생성된 파일들이 있으면
+    {
+        // wd_list를 순회하며 새로 생성된 파일들을 출력
+        for (e = list_begin(&wd_list); e != list_end(&wd_list);)
+        {
+            struct blob_item *wd_file = list_entry(e, struct blob_item, elem);
+            printf("created: %s\n", wd_file->file_name);
+            //해당 원소를 list에서 지워줌
+            e = list_remove(e);
+            free(wd_file);
+        }
+    }
+    if (!list_empty(&idx_list))//삭제된 파일들이 있으면
+    {
+        // idx_list를 순회하며 삭제된 파일들을 출력
+        for (e = list_begin(&idx_list); e != list_end(&idx_list);)
+        {
+            struct blob_item *idx_file = list_entry(e, struct blob_item, elem);
+            printf("deleted: %s\n", idx_file->file_name);
+            //해당 원소를 list에서 지워줌
+            e = list_remove(e);
+            free(idx_file);
+        }
+    }
 }
 
 void wd_recursive_list(char *cur_folder, struct list *wd_list)
@@ -200,7 +266,7 @@ void gitt_add(int argc, char *argv[])
         //현재 working directory를 wd_list로 정보를 읽어옴
         wd_recursive_list("", &wd_list);
 
-        //wd_list의 정보를 index파일에 써줌
+        // wd_list의 정보를 index파일에 써줌
         write_list_to_index_file(&wd_list);
 
         fclose(index);

@@ -18,6 +18,7 @@
         "blob_tree.h": "c",
         "__hash_table": "c",
         "unordered_map": "c",
-        "utility": "c"
+        "utility": "c",
+        "numbers": "c"
     }
 }
