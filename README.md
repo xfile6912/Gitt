@@ -153,7 +153,41 @@
 	```
 	<br>
 #### `./gitt status`
-  - 현재 gitt의 상태를 출력
+- Working Directory와 Staged Area를 비교하여 상태를 출력
+	```
+    # 현재 상태는 위의 명령들을 순서대로 실행하여 HEAD가 maseter브랜치를 가리킴
+    # master 브랜치는 master commit을 가리키는 상태임 [WD = Working Directory]
+    
+    $ ./gitt status 		
+    # WD와 Staging Area가 차이가 없기 때문에 아무것도 출력되지 않음
+    
+    $ echo helloworld4 > temp6.txt	
+    # temp6.txt를 새로 생성하여 WD와 Staging Area의 차이를 만듦
+    
+    $ ./gitt status			
+    # WD에 temp6.txt가 생성되었다고 출력될 것임
+
+    $ ./gitt add .			
+    # temp6.txt를 Staging Area로 넣어줌
+    
+    $ ./gitt status			
+    # 이제 WD와 Staging Area가 차이가 없기 때문에 아무것도 출력되지 않음
+    
+    $ rm temp6.txt			
+    # temp6.txt를 삭제하여 WD와 Staging Area의 차이를 만듦
+    
+    $ ./gitt status			
+    # WD에 temp6.txt가 삭제되었다고 출력될 것임
+    
+    $ echo helloworld6 > temp6.txt
+    # 새로 temp6.txt(hellowrold6)를 생성하여 Staging Area의 temp6.txt(helloworld4)와 파일에 차이를 만듦
+    
+    $ ./gitt status
+    # WD에서 temp6.txt가 수정되었다고 출력될 것임
+    ```
+    - 아래와 같이 예측한대로 수행된 것을 확인할 수 있음<br><br>
+    	<img width="700" src="https://user-images.githubusercontent.com/57051773/148012041-96cd7726-ed44-4488-9502-390ef9cc6aea.png">
+        
 
 #### 기타
 - 따옴표 처리가 가능한 argument parser
