@@ -190,6 +190,8 @@ void wd_recursive_list(char *cur_folder, struct list *wd_list)
             // hashed_str 생성
             get_file_hash(hashed_str, file_relative_path);
 
+            create_blob_file(hashed_str, file_relative_path);
+
             // item 생성하여 wd_list에 저장
             struct blob_item *blb_item = (struct blob_item *)malloc(sizeof(struct blob_item));
             strcpy(blb_item->hashed_str, hashed_str);
@@ -563,7 +565,6 @@ void delete_all_files_in_folder(char *cur_folder)
     // cur folder 내의 파일들 및 폴더들 순회
     while ((file = readdir(dir)))
     {
-
         // cur folder에 속한 파일들 및 폴더들 까지의 상대 경로를 저장
         char file_relative_path[MAX_LINE];
         memset(file_relative_path, '\0', MAX_LINE);
@@ -600,7 +601,6 @@ void create_files_using_tree_hash(char *tree_hash, char *relative_path)
     // tree hash를 이용하여 tree 파일에 대한 path 생성
     char tree_path[MAX_LINE];
     make_object_path(tree_path, tree_hash);
-
     // tree파일에 속한 파일들의 내용을 읽어옴
     FILE *tree_file = fopen(tree_path, "r");
     while (1)
@@ -646,6 +646,7 @@ void file_copy(char *from_path, char *to_path)
 {
     FILE *from = fopen(from_path, "r");
     FILE *to = fopen(to_path, "w");
+
     char c;
     while (1)
     {
@@ -654,10 +655,8 @@ void file_copy(char *from_path, char *to_path)
             break;
         fputc(c, to);
     }
-
     fclose(from);
     fclose(to);
-
     //파일 권한 복사
     struct stat file_stat;
     stat(from_path, &file_stat);
@@ -675,15 +674,14 @@ void update_files(char *commit_hash)
 
     // commit hash를 이용해서 commit_path를 생성
     make_object_path(commit_path, commit_hash);
-
     // commit_path를 이용해 해당 커밋의 tree를 읽어옴
     FILE *commit_file = fopen(commit_path, "r");
     // temp에는 tree가 저장되고, tree_hash에 commit의 tree에 대한 hash값이 저장됨
     fscanf(commit_file, "%s %s", temp, tree_hash);
     fclose(commit_file);
-
     // commit의 tree hash를 이용해 파일들을 재귀적으로 탐색하며 생성
     create_files_using_tree_hash(tree_hash, "");
+
 }
 
 //./gitt checkout [branch name] or [commit hash]
