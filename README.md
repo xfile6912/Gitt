@@ -147,7 +147,7 @@
    
 - 다시 브랜치를 master 브랜치로 바꾸어줌
 	```
-	$ ./gitt branch master
+	$ ./gitt checkout master
 	current branch: master
 	```
 	<br>
